@@ -1,0 +1,2 @@
+把 超分辨率的 pt文件 放在 pretrained_models里面 
+shape_predictor_68_face_landmarks.dat 放在 entrance同级目录下面
