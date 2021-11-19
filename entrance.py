@@ -1,5 +1,13 @@
 #!/usr/bin/python
 # encoding: utf-8
+from PyQt5 import QtWidgets
+from multiprocessing import Process, Manager, freeze_support
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QSlider, QPushButton, QDesktopWidget, QVBoxLayout, QHBoxLayout, QComboBox, QTextBrowser, QTextEdit, QLabel, QDialog, QFileDialog, QLineEdit, QMessageBox
+from PyQt5.QtCore import QCoreApplication, Qt
+from PyQt5 import QtSql
+from PyQt5.QtSql import QSqlQuery
+from PyQt5.QtGui import QPixmap, QImage
+
 
 from datasets import augmentations
 from utils.common import tensor2im, log_input_image
@@ -13,47 +21,16 @@ from PIL import Image
 import torch
 import torchvision.transforms as transforms
 
+import dlib
+from scripts.align_all_parallel import align_face
+
 sys.path.append(".")
 sys.path.append("..")
 
-from datasets import augmentations
-from utils.common import tensor2im, log_input_image
-from models.psp import pSp
 
 experiment_type = 'celebs_super_resolution'
 
 EXPERIMENT_DATA_ARGS = {
-    "ffhq_encode": {
-        "model_path": "pretrained_models/psp_ffhq_encode.pt",
-        "image_path": "notebooks/images/input_img.jpg",
-        "transform": transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
-    },
-    "ffhq_frontalize": {
-        "model_path": "pretrained_models/psp_ffhq_frontalization.pt",
-        "image_path": "notebooks/images/input_img.jpg",
-        "transform": transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
-    },
-    "celebs_sketch_to_face": {
-        "model_path": "pretrained_models/psp_celebs_sketch_to_face.pt",
-        "image_path": "notebooks/images/input_sketch.jpg",
-        "transform": transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.ToTensor()])
-    },
-    "celebs_seg_to_face": {
-        "model_path": "pretrained_models/psp_celebs_seg_to_face.pt",
-        "image_path": "notebooks/images/input_mask.png",
-        "transform": transforms.Compose([
-            transforms.Resize((256, 256)),
-            augmentations.ToOneHot(n_classes=19),
-            transforms.ToTensor()])
-    },
     "celebs_super_resolution": {
         "model_path": "pretrained_models/psp_celebs_super_resolution.pt",
         "image_path": "notebooks/images/input_img.jpg",
@@ -74,12 +51,13 @@ EXPERIMENT_DATA_ARGS = {
     },
 }
 if __name__ == '__main__':
-    #´ýQt°ü×°
+    # ï¿½ï¿½Qtï¿½ï¿½×°
     entranceFunction()
+
 
 def entranceFunction():
     print(EXPERIMENT_DATA_ARGS)
-    #Ö§³Ö¿ÉÑ¡Êý¾Ý¼¯
+    # Ö§ï¿½Ö¿ï¿½Ñ¡ï¿½ï¿½ï¿½Ý¼ï¿½
     EXPERIMENT_ARGS = EXPERIMENT_DATA_ARGS[experiment_type]
     model_path = EXPERIMENT_ARGS['model_path']
     ckpt = torch.load(model_path, map_location='cpu')
@@ -106,42 +84,33 @@ def entranceFunction():
         original_image = original_image.convert("RGB")
     else:
         original_image = original_image.convert("L")
-    #¶ÁÈ¡Ä¬ÈÏÍ¼Æ¬ ×ª»¯Í¼Æ¬¸ñÊ½ 
+    # ï¿½ï¿½È¡Ä¬ï¿½ï¿½Í¼Æ¬ ×ªï¿½ï¿½Í¼Æ¬ï¿½ï¿½Ê½
 
-    original_image.resize((256,256))
+    original_image.resize((256, 256))
 
-    #¶ÔÍ¼Æ¬½øÐÐ¶ÔÆë
-    if experiment_type not in ["celebs_sketch_to_face", "celebs_seg_to_face"]:
-        input_image = run_alignment(image_path)
-    else:
-    input_image = original_image
+    # ï¿½ï¿½Í¼Æ¬ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½
 
-
+    input_image = run_alignment(image_path)
     input_image.resize((256, 256))
 
-    if experiment_type in ["celebs_sketch_to_face", "celebs_seg_to_face"]:
-        latent_mask = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
-    else:
-        latent_mask = None
+    latent_mask = None
     with torch.no_grad():
         tic = time.time()
-        result_image = run_on_batch(transformed_image.unsqueeze(0), net, latent_mask)[0]
+        result_image = run_on_batch(
+            transformed_image.unsqueeze(0), net, latent_mask)[0]
         toc = time.time()
         print('Inference took {:.4f} seconds.'.format(toc - tic))
     input_vis_image = log_input_image(transformed_image, opts)
     output_image = tensor2im(result_image)
     res_image = Image.fromarray(res)
 
-
     res = np.concatenate([np.array(input_image.resize((256, 256))),
-                            np.array(input_vis_image.resize((256, 256))),
-                            np.array(output_image.resize((256, 256)))], axis=1)
+                          np.array(input_vis_image.resize((256, 256))),
+                          np.array(output_image.resize((256, 256)))], axis=1)
 
 
 def run_alignment(image_path):
-      import dlib
-  from scripts.align_all_parallel import align_face
-  predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
-  aligned_image = align_face(filepath=image_path, predictor=predictor)
-  print("Aligned image has shape: {}".format(aligned_image.size))
-  return aligned_image
+    predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+    aligned_image = align_face(filepath=image_path, predictor=predictor)
+    print("Aligned image has shape: {}".format(aligned_image.size))
+    return aligned_image
