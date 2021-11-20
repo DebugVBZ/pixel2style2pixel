@@ -2,12 +2,12 @@
 # encoding: utf-8
 from PyQt5 import QtWidgets
 from multiprocessing import Process, Manager, freeze_support
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QSlider, QPushButton, QDesktopWidget, QVBoxLayout, QHBoxLayout, QComboBox, QTextBrowser, QTextEdit, QLabel, QDialog, QFileDialog, QLineEdit, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QSlider, QPushButton, QDesktopWidget, QVBoxLayout, \
+    QHBoxLayout, QComboBox, QTextBrowser, QTextEdit, QLabel, QDialog, QFileDialog, QLineEdit, QMessageBox
 from PyQt5.QtCore import QCoreApplication, Qt
 from PyQt5 import QtSql
 from PyQt5.QtSql import QSqlQuery
 from PyQt5.QtGui import QPixmap, QImage
-
 
 from datasets import augmentations
 from utils.common import tensor2im, log_input_image
@@ -28,13 +28,12 @@ import matplotlib.pyplot as plt
 sys.path.append(".")
 sys.path.append("..")
 
-
 experiment_type = 'celebs_super_resolution'
 
 EXPERIMENT_DATA_ARGS = {
     "celebs_super_resolution": {
         "model_path": "pretrained_models/psp_celebs_super_resolution.pt",
-        "image_path": "notebooks/images/input_img.jpg",
+        "image_path": "./test256.jpg",
         "transform": transforms.Compose([
             transforms.Resize((256, 256)),
             augmentations.BilinearResize(factors=[16]),
@@ -51,12 +50,9 @@ EXPERIMENT_DATA_ARGS = {
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
     },
 }
-if __name__ == '__main__':
-    # ��Qt��װ
-    entranceFunction()
 
 
-def entranceFunction():
+def entranceFunction(input_image_path):
     print(EXPERIMENT_DATA_ARGS)
     # ֧�ֿ�ѡ���ݼ�
     EXPERIMENT_ARGS = EXPERIMENT_DATA_ARGS[experiment_type]
@@ -80,7 +76,7 @@ def entranceFunction():
     print('Model successfully loaded!')
 
     image_path = EXPERIMENT_DATA_ARGS[experiment_type]["image_path"]
-    original_image = Image.open(image_path)
+    original_image = Image.open(input_image_path)
     if opts.label_nc == 0:
         original_image = original_image.convert("RGB")
     else:
@@ -90,11 +86,11 @@ def entranceFunction():
     original_image.resize((256, 256))
 
     # ��ͼƬ���ж���
-    input_image = run_alignment(image_path)
+    input_image = run_alignment(input_image_path)
     input_image.resize((256, 256))
 
     img_transforms = EXPERIMENT_ARGS['transform']
-    transformed_image = img_transforms(input_image)
+    transformed_image = img_transforms(original_image)
     latent_mask = None
     with torch.no_grad():
         tic = time.time()
@@ -102,13 +98,17 @@ def entranceFunction():
             transformed_image.unsqueeze(0), net, latent_mask)[0]
         toc = time.time()
         print('Inference took {:.4f} seconds.'.format(toc - tic))
+
     input_vis_image = log_input_image(transformed_image, opts)
     output_image = tensor2im(result_image)
-    res = np.concatenate([np.array(input_image.resize((256, 256))),
-                          np.array(input_vis_image.resize((256, 256))),
-                          np.array(output_image.resize((256, 256)))], axis=1)
+    res = np.concatenate([np.array(output_image.resize((256, 256)))], axis=1)
     res_image = Image.fromarray(res)
     plt.imshow(res_image)
+
+    print(res_image)
+    res_image.save("./test.jpg")
+    print("succeed in processing res Image")
+    return "./test.jpg"
 
 
 def run_alignment(image_path):
@@ -119,6 +119,7 @@ def run_alignment(image_path):
 
 
 def run_on_batch(inputs, net, latent_mask=None):
+    # 待确定，此处返回值是中间产物还是预处理的模糊
     if latent_mask is None:
         result_batch = net(inputs.to("cuda").float(), randomize_noise=False)
     else:
@@ -136,3 +137,9 @@ def run_on_batch(inputs, net, latent_mask=None):
             result_batch.append(res)
         result_batch = torch.cat(result_batch, dim=0)
     return result_batch
+
+
+if __name__ == '__main__':
+    # ��Qt��װ
+    entranceFunction()
+
