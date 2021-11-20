@@ -1,2 +1,10 @@
-°Ñ ³¬·Ö±æÂÊµÄ ptÎÄ¼ş ·ÅÔÚ pretrained_modelsÀïÃæ 
-shape_predictor_68_face_landmarks.dat ·ÅÔÚ entranceÍ¬¼¶Ä¿Â¼ÏÂÃæ
+æŠŠ è¶…åˆ†è¾¨ç‡çš„ ptæ–‡ä»¶ æ”¾åœ¨ pretrained_modelsé‡Œé¢ 
+shape_predictor_68_face_landmarks.dat æ”¾åœ¨ entranceåŒçº§ç›®å½•ä¸‹é¢\
+
+
+1. æ£€æŸ¥ç»ˆç«¯ è™šæ‹Ÿç¯å¢ƒ
+2.  conda env list 
+3.  activate {your env name}
+4.  python main.py
+5.  tips:  å­˜å‚¨å›¾ç‰‡æ—¶åŠ ä¸Š.jpg åç¼€
+6.  remember to love me baby
